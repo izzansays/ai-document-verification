@@ -38,13 +38,6 @@ const applicationTables = {
     policyEndDate: v.string(),
     validParties: v.array(v.string()),
   }),
-
-  documents: defineTable({
-    type: v.union(v.literal("medical_bill"), v.literal("vehicle_repair"), v.literal("police_report")),
-    name: v.string(),
-    url: v.string(),
-    description: v.string(),
-  }),
 };
 
 export default defineSchema({

@@ -1,13 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
-export const getAvailableDocuments = query({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.db.query("documents").collect();
-  },
-});
-
 export const submitClaim = mutation({
   args: {
     claimantEmail: v.string(),

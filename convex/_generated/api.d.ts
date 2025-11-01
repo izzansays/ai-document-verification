@@ -12,7 +12,6 @@ import type * as ai from "../ai.js";
 import type * as claims from "../claims.js";
 import type * as http from "../http.js";
 import type * as router from "../router.js";
-import type * as setup from "../setup.js";
 
 import type {
   ApiFromModules,
@@ -33,7 +32,6 @@ declare const fullApi: ApiFromModules<{
   claims: typeof claims;
   http: typeof http;
   router: typeof router;
-  setup: typeof setup;
 }>;
 declare const fullApiWithMounts: typeof fullApi;
 
