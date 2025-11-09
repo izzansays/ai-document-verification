@@ -1,6 +1,7 @@
 import type { Id } from "../../../convex/_generated/dataModel";
 import { AIEvaluationBadge } from "../ui/ai-evaluation-badge";
 import { DetailField } from "../ui/detail-field";
+import { ScrollArea } from "../ui/scroll-area";
 import { StatusBadge } from "../ui/status-badge";
 
 type ClaimStatus = "pending" | "approved" | "rejected";
@@ -48,8 +49,9 @@ export function ClaimDetails({
   onStatusUpdate,
 }: ClaimDetailsProps) {
   return (
-    <div className="flex-1 overflow-y-auto p-6">
-      <div className="rounded-lg border bg-white p-6">
+    <ScrollArea className="flex-1">
+      <div className="p-6">
+        <div className="rounded-lg border bg-white p-6">
         <div className="mb-6 flex items-start justify-between">
           <div>
             <h3 className="font-bold text-2xl">
@@ -218,7 +220,8 @@ export function ClaimDetails({
             </div>
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </ScrollArea>
   );
 }

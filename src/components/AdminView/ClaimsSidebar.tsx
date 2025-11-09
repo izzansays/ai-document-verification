@@ -1,4 +1,5 @@
 import type { Id } from "../../../convex/_generated/dataModel";
+import { ScrollArea } from "../ui/scroll-area";
 import { StatusBadge } from "../ui/status-badge";
 
 type ClaimStatus = "pending" | "approved" | "rejected";
@@ -58,7 +59,7 @@ export function ClaimsSidebar({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <ScrollArea className="flex-1">
         {claims.length === 0 ? (
           <div className="p-4 text-center text-gray-500">No claims found</div>
         ) : (
@@ -93,7 +94,7 @@ export function ClaimsSidebar({
             ))}
           </div>
         )}
-      </div>
+      </ScrollArea>
     </div>
   );
 }

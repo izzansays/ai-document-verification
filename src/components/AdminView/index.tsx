@@ -51,7 +51,7 @@ export function AdminView() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-full bg-gray-50">
       <ClaimsSidebar
         selectedStatus={selectedStatus}
         onStatusChange={setSelectedStatus}
@@ -60,7 +60,7 @@ export function AdminView() {
         onClaimSelect={setSelectedClaimId}
       />
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col overflow-hidden">
         {selectedClaim ? (
           <ClaimDetails
             claim={selectedClaim}

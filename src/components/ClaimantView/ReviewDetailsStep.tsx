@@ -3,7 +3,9 @@ import { CircleCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUser } from "@/contexts/UserContext";
 import { api } from "../../../convex/_generated/api";
 import { Sparkles } from "../animate-ui/icons/sparkles";
 
@@ -24,6 +26,7 @@ type Document = {
 type ReviewDetailsStepProps = {
   selectedDocument: Document | null;
   onBack: () => void;
+  onComplete?: () => void;
 };
 
 type FormState = "extracting" | "editing" | "submitted";
@@ -31,8 +34,9 @@ type FormState = "extracting" | "editing" | "submitted";
 export function ReviewDetailsStep({
   selectedDocument,
   onBack,
+  onComplete,
 }: ReviewDetailsStepProps) {
-  const [claimantEmail, setClaimantEmail] = useState("demo@example.com");
+  const { email } = useUser();
   const [editableDetails, setEditableDetails] =
     useState<ExtractedDetails | null>(null);
   const [formState, setFormState] = useState<FormState>("extracting");
@@ -69,13 +73,13 @@ export function ReviewDetailsStep({
   }, [selectedDocument, hasExtracted, extractDetails]);
 
   const handleSubmit = async () => {
-    if (!(selectedDocument && editableDetails)) {
+    if (!(selectedDocument && editableDetails && email)) {
       return;
     }
 
     try {
       const submittedClaimId = await submitClaim({
-        claimantEmail,
+        claimantEmail: email,
         documentType: selectedDocument.type,
         documentUrl: selectedDocument.url,
         extractedDetails: editableDetails,
@@ -91,9 +95,12 @@ export function ReviewDetailsStep({
     setEditableDetails(null);
     setFormState("extracting");
     setClaimId(undefined);
-    setClaimantEmail("demo@example.com");
     hasExtracted = true;
-    onBack();
+    if (onComplete) {
+      onComplete();
+    } else {
+      onBack();
+    }
   };
 
   if (formState === "extracting") {
@@ -140,29 +147,14 @@ export function ReviewDetailsStep({
   }
 
   return (
-    <div>
-      <p className="mb-8 text-gray-600">
-        Please review the extracted information and make any necessary
-        corrections:
-      </p>
+    <ScrollArea className="h-full">
+      <div className="pr-4">
+        <p className="mb-8 text-gray-600">
+          Please review the extracted information and make any necessary
+          corrections:
+        </p>
 
-      <div className="space-y-4 rounded-lg border bg-white p-6">
-        <div>
-          <label
-            htmlFor="claimant-email-input"
-            className="mb-2 block font-medium text-gray-700 text-sm"
-          >
-            Claimant Email
-          </label>
-          <input
-            id="claimant-email-input"
-            type="email"
-            value={claimantEmail}
-            onChange={(e) => setClaimantEmail(e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
+        <div className="space-y-4 rounded-lg border bg-white p-6">
         <div>
           <label
             htmlFor="document-type-input"
@@ -269,14 +261,15 @@ export function ReviewDetailsStep({
         </div>
       </div>
 
-      <div className="mt-6 flex justify-end gap-4">
-        <Button type="button" onClick={onBack} variant="outline">
-          Back
-        </Button>
-        <Button type="button" onClick={handleSubmit}>
-          Submit Claim
-        </Button>
+        <div className="mt-6 flex justify-end gap-4">
+          <Button type="button" onClick={onBack} variant="outline">
+            Back
+          </Button>
+          <Button type="button" onClick={handleSubmit}>
+            Submit Claim
+          </Button>
+        </div>
       </div>
-    </div>
+    </ScrollArea>
   );
 }
