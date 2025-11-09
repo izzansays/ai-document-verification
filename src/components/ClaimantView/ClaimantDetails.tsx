@@ -26,7 +26,11 @@ export function ClaimantDetails({ onStartClaim }: ClaimantDetailsProps) {
             against your insurance policy details shown below. You can view your
             past claims and their status in the right panel.
           </p>
-          <Button onClick={onStartClaim} size="lg" className="px-8 py-6 text-lg">
+          <Button
+            onClick={onStartClaim}
+            size="lg"
+            className="px-8 py-6 text-lg"
+          >
             Submit New Claim
           </Button>
 
@@ -48,8 +52,8 @@ export function ClaimantDetails({ onStartClaim }: ClaimantDetailsProps) {
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 font-bold">•</span>
                 <span>
-                  <strong>Policy Period:</strong> January 1, 2024 - December
-                  31, 2024
+                  <strong>Policy Period:</strong> January 1, 2024 - December 31,
+                  2024
                 </span>
               </li>
               <li className="flex items-start gap-2">

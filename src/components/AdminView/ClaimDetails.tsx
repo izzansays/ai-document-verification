@@ -21,6 +21,7 @@ type Claim = {
   aiEvaluation: {
     approved: boolean;
     reason: string;
+    confidenceScore?: number;
     policyCheck: {
       withinLimit: boolean;
       withinDateWindow: boolean;
@@ -109,11 +110,19 @@ export function ClaimDetails({
         <div className="mb-6">
           <h4 className="mb-3 font-semibold text-lg">AI Policy Evaluation</h4>
           <div className="rounded-lg border p-4">
-            <div className="mb-3 flex items-center">
+            <div className="mb-3 flex items-center justify-between">
               <AIEvaluationBadge
                 approved={claim.aiEvaluation.approved}
                 size="md"
               />
+              {claim.aiEvaluation.confidenceScore !== undefined && (
+                <div className="text-right">
+                  <p className="text-gray-600 text-xs">Confidence Score</p>
+                  <p className="font-bold text-lg">
+                    {claim.aiEvaluation.confidenceScore}%
+                  </p>
+                </div>
+              )}
             </div>
             <p className="mb-4 text-gray-700">{claim.aiEvaluation.reason}</p>
 

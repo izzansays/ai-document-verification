@@ -10,6 +10,7 @@
 
 import type * as ai from "../ai.js";
 import type * as claims from "../claims.js";
+import type * as documents from "../documents.js";
 import type * as http from "../http.js";
 import type * as router from "../router.js";
 
@@ -30,6 +31,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   claims: typeof claims;
+  documents: typeof documents;
   http: typeof http;
   router: typeof router;
 }>;

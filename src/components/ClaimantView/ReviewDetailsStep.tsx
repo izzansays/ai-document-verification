@@ -1,4 +1,4 @@
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { CircleCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUser } from "@/contexts/UserContext";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { Sparkles } from "../animate-ui/icons/sparkles";
 
 type ExtractedDetails = {
@@ -20,7 +21,8 @@ type Document = {
   id: string;
   type: "medical_bill" | "vehicle_repair" | "police_report";
   name: string;
-  url: string;
+  storageId: Id<"_storage">;
+  url: string | null;
 };
 
 type ReviewDetailsStepProps = {
@@ -29,7 +31,7 @@ type ReviewDetailsStepProps = {
   onComplete?: () => void;
 };
 
-type FormState = "extracting" | "editing" | "submitted";
+type FormState = "extracting" | "editing" | "submitting" | "submitted";
 
 export function ReviewDetailsStep({
   selectedDocument,
@@ -43,7 +45,9 @@ export function ReviewDetailsStep({
   const [claimId, setClaimId] = useState<string | undefined>(undefined);
 
   const extractDetails = useAction(api.ai.extractDocumentDetails);
+  const evaluateClaim = useAction(api.ai.evaluateClaim);
   const submitClaim = useMutation(api.claims.submitClaim);
+  const policyRules = useQuery(api.claims.getPolicyRules);
 
   let hasExtracted = false;
 
@@ -59,7 +63,7 @@ export function ReviewDetailsStep({
       try {
         const details = await extractDetails({
           documentType: selectedDocument.type,
-          documentUrl: selectedDocument.url,
+          storageId: selectedDocument.storageId,
         });
         setEditableDetails(details);
         setFormState("editing");
@@ -73,21 +77,32 @@ export function ReviewDetailsStep({
   }, [selectedDocument, hasExtracted, extractDetails]);
 
   const handleSubmit = async () => {
-    if (!(selectedDocument && editableDetails && email)) {
+    if (!(selectedDocument && editableDetails && email && policyRules)) {
       return;
     }
 
     try {
+      setFormState("submitting");
+
+      // First, evaluate the claim using AI
+      const aiEvaluation = await evaluateClaim({
+        extractedDetails: editableDetails,
+        policyRules,
+      });
+
+      // Then submit the claim with the evaluation
       const submittedClaimId = await submitClaim({
         claimantEmail: email,
         documentType: selectedDocument.type,
-        documentUrl: selectedDocument.url,
+        storageId: selectedDocument.storageId,
         extractedDetails: editableDetails,
+        aiEvaluation,
       });
       setClaimId(submittedClaimId);
       setFormState("submitted");
     } catch (_error) {
       toast.error("Failed to submit claim");
+      setFormState("editing");
     }
   };
 
@@ -146,6 +161,8 @@ export function ReviewDetailsStep({
     return null;
   }
 
+  const isSubmitting = formState === "submitting";
+
   return (
     <ScrollArea className="h-full">
       <div className="pr-4">
@@ -189,7 +206,8 @@ export function ReviewDetailsStep({
                 amount: Number.parseFloat(e.target.value) || 0,
               })
             }
-            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            disabled={isSubmitting}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-gray-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
@@ -210,7 +228,8 @@ export function ReviewDetailsStep({
                 date: e.target.value,
               })
             }
-            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            disabled={isSubmitting}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-gray-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
@@ -234,7 +253,8 @@ export function ReviewDetailsStep({
               })
             }
             rows={3}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            disabled={isSubmitting}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-gray-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
             placeholder="Separate parties with commas"
           />
         </div>
@@ -256,17 +276,18 @@ export function ReviewDetailsStep({
               })
             }
             rows={4}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            disabled={isSubmitting}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-gray-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
           />
         </div>
       </div>
 
         <div className="mt-6 flex justify-end gap-4">
-          <Button type="button" onClick={onBack} variant="outline">
+          <Button type="button" onClick={onBack} variant="outline" disabled={isSubmitting}>
             Back
           </Button>
-          <Button type="button" onClick={handleSubmit}>
-            Submit Claim
+          <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? "Submitting..." : "Submit Claim"}
           </Button>
         </div>
       </div>

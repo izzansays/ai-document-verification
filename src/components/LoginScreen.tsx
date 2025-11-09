@@ -46,8 +46,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                       key information
                     </li>
                     <li>
-                      Review and edit the extracted data in the form (all
-                      fields are editable)
+                      Review and edit the extracted data in the form (all fields
+                      are editable)
                     </li>
                     <li>
                       Submit the claim to see it appear in the Admin Dashboard

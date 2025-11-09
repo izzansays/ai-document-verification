@@ -6,7 +6,7 @@ const applicationTables = {
     claimantEmail: v.optional(v.string()),
     claimantId: v.optional(v.id("users")), // Keep for backward compatibility
     documentType: v.union(v.literal("medical_bill"), v.literal("vehicle_repair"), v.literal("police_report")),
-    documentUrl: v.string(),
+    storageId: v.id("_storage"),
     extractedDetails: v.object({
       amount: v.number(),
       date: v.string(),
@@ -16,6 +16,7 @@ const applicationTables = {
     aiEvaluation: v.object({
       approved: v.boolean(),
       reason: v.string(),
+      confidenceScore: v.optional(v.number()),
       policyCheck: v.object({
         withinLimit: v.boolean(),
         withinDateWindow: v.boolean(),
@@ -37,6 +38,12 @@ const applicationTables = {
     policyStartDate: v.string(),
     policyEndDate: v.string(),
     validParties: v.array(v.string()),
+  }),
+
+  documents: defineTable({
+    name: v.string(),
+    type: v.union(v.literal("medical_bill"), v.literal("vehicle_repair"), v.literal("police_report")),
+    storageId: v.id("_storage"),
   }),
 };
 
