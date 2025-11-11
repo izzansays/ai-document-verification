@@ -1,76 +1,28 @@
 import { FileText } from "lucide-react";
-import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TitleBarStepper } from "@/components/stepper/title-bar";
+import { useNavigation } from "@/stores/claimantStore";
 import { ClaimantDetails } from "./ClaimantDetails";
 import { ReviewDetailsStep } from "./ReviewDetailsStep";
 import { SelectDocumentStep } from "./SelectDocumentStep";
 
-type Document = {
-  id: string;
-  type: "medical_bill" | "vehicle_repair" | "police_report";
-  name: string;
-  url: string;
-};
-
 export function ClaimantView() {
-  const [inClaimProcess, setInClaimProcess] = useState(false);
-  const [step, setStep] = useState(1);
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(
-    null
-  );
+  const { step, selectedDocument } = useNavigation();
 
-  const handleStartClaim = () => {
-    setInClaimProcess(true);
-    setStep(1);
-  };
-
-  const handleDocumentPreview = (document: Document | null) => {
-    setSelectedDocument(document);
-  };
-
-  const handleDocumentSelect = (document: Document) => {
-    setSelectedDocument(document);
-    setStep(2);
-  };
-
-  const handleBackToDocumentSelect = () => {
-    setStep(1);
-    setSelectedDocument(null);
-  };
-
-  const handleCompleteAndReturn = () => {
-    setInClaimProcess(false);
-    setStep(1);
-    setSelectedDocument(null);
-  };
-
-  // Show landing page when not in claim process
-  if (!inClaimProcess) {
-    return <ClaimantDetails onStartClaim={handleStartClaim} />;
+  // Show landing page when step is 0
+  if (step === 0) {
+    return <ClaimantDetails />;
   }
 
-  // Show stepper when in claim process
+  // Show stepper when in claim process (step 1 or 2)
   const steps = [
     {
       title: "Select Document",
-      content: (
-        <SelectDocumentStep
-          onDocumentSelect={handleDocumentSelect}
-          onDocumentPreview={handleDocumentPreview}
-          selectedDocument={selectedDocument}
-        />
-      ),
+      content: <SelectDocumentStep />,
     },
     {
       title: "Review Details",
-      content: (
-        <ReviewDetailsStep
-          selectedDocument={selectedDocument}
-          onBack={handleBackToDocumentSelect}
-          onComplete={handleCompleteAndReturn}
-        />
-      ),
+      content: <ReviewDetailsStep />,
     },
   ];
 
@@ -79,7 +31,6 @@ export function ClaimantView() {
       <TitleBarStepper
         steps={steps}
         currentStep={step}
-        onStepChange={setStep}
         className="space-y-8 border-r p-4"
       />
       <ScrollArea className="bg-gray-50">
@@ -88,7 +39,7 @@ export function ClaimantView() {
             <div className="w-full max-w-2xl">
               <div className="overflow-hidden bg-white shadow-lg">
                 <img
-                  src={selectedDocument.url}
+                  src={selectedDocument.url ?? undefined}
                   alt={selectedDocument.name}
                   className="h-auto w-full"
                   width="800"

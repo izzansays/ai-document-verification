@@ -1,92 +1,66 @@
 import { useAction, useMutation, useQuery } from "convex/react";
 import { CircleCheck } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUser } from "@/contexts/UserContext";
+import { useNavigation, useClaimData, useReviewForm } from "@/stores/claimantStore";
+import { useUser } from "@/stores/userStore";
 import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
 import { Sparkles } from "../animate-ui/icons/sparkles";
 
-type ExtractedDetails = {
-  amount: number;
-  date: string;
-  parties: string[];
-  description: string;
-};
-
-type Document = {
-  id: string;
-  type: "medical_bill" | "vehicle_repair" | "police_report";
-  name: string;
-  storageId: Id<"_storage">;
-  url: string | null;
-};
-
-type ReviewDetailsStepProps = {
-  selectedDocument: Document | null;
-  onBack: () => void;
-  onComplete?: () => void;
-};
-
-type FormState = "extracting" | "editing" | "submitting" | "submitted";
-
-export function ReviewDetailsStep({
-  selectedDocument,
-  onBack,
-  onComplete,
-}: ReviewDetailsStepProps) {
+export function ReviewDetailsStep() {
   const { email } = useUser();
-  const [editableDetails, setEditableDetails] =
-    useState<ExtractedDetails | null>(null);
-  const [formState, setFormState] = useState<FormState>("extracting");
-  const [claimId, setClaimId] = useState<string | undefined>(undefined);
+  const { selectedDocument, backToDocumentSelect, completeAndReturnHome } = useNavigation();
+  const { claimId, setClaimId } = useClaimData();
+  const { formStatus, extractedDetails, setFormStatus, setExtractedDetails } = useReviewForm();
 
-  const extractDetails = useAction(api.ai.extractDocumentDetails);
+  const extractDetailsAction = useAction(api.ai.extractDocumentDetails);
   const evaluateClaim = useAction(api.ai.evaluateClaim);
   const submitClaim = useMutation(api.claims.submitClaim);
   const policyRules = useQuery(api.claims.getPolicyRules);
 
-  let hasExtracted = false;
-
-  // Extract details when document is selected (only once)
+  // Extract details when document is selected (only once per document)
   useEffect(() => {
-    if (!selectedDocument || hasExtracted) {
+    // Don't extract if no document or already have details
+    if (!selectedDocument || extractedDetails !== null) {
       return;
     }
 
-    hasExtracted = true;
+    // Only extract if status is "extracting" (initial state when entering step 2)
+    if (formStatus !== "extracting") {
+      return;
+    }
+
     const extract = async () => {
-      setFormState("extracting");
       try {
-        const details = await extractDetails({
+        const details = await extractDetailsAction({
           documentType: selectedDocument.type,
           storageId: selectedDocument.storageId,
         });
-        setEditableDetails(details);
-        setFormState("editing");
+        setExtractedDetails(details);
+        setFormStatus("editing");
       } catch (_error) {
         toast.error("Failed to extract document details");
-        setFormState("editing");
+        setFormStatus("editing");
       }
     };
 
     extract();
-  }, [selectedDocument, hasExtracted, extractDetails]);
+  }, [selectedDocument, extractedDetails, formStatus, extractDetailsAction, setExtractedDetails, setFormStatus]);
 
   const handleSubmit = async () => {
-    if (!(selectedDocument && editableDetails && email && policyRules)) {
+    if (!(selectedDocument && extractedDetails && email && policyRules)) {
       return;
     }
 
     try {
-      setFormState("submitting");
+      setFormStatus("submitting");
 
       // First, evaluate the claim using AI
       const aiEvaluation = await evaluateClaim({
-        extractedDetails: editableDetails,
+        extractedDetails,
         policyRules,
       });
 
@@ -95,30 +69,18 @@ export function ReviewDetailsStep({
         claimantEmail: email,
         documentType: selectedDocument.type,
         storageId: selectedDocument.storageId,
-        extractedDetails: editableDetails,
+        extractedDetails,
         aiEvaluation,
       });
       setClaimId(submittedClaimId);
-      setFormState("submitted");
+      setFormStatus("submitted");
     } catch (_error) {
       toast.error("Failed to submit claim");
-      setFormState("editing");
+      setFormStatus("editing");
     }
   };
 
-  const handleStartNew = () => {
-    setEditableDetails(null);
-    setFormState("extracting");
-    setClaimId(undefined);
-    hasExtracted = true;
-    if (onComplete) {
-      onComplete();
-    } else {
-      onBack();
-    }
-  };
-
-  if (formState === "extracting") {
+  if (formStatus === "extracting") {
     return (
       <div className="space-y-6">
         <div className="flex flex-col gap-3 rounded-lg border bg-muted/50 p-4">
@@ -138,7 +100,7 @@ export function ReviewDetailsStep({
     );
   }
 
-  if (formState === "submitted") {
+  if (formStatus === "submitted") {
     return (
       <div className="rounded-lg border border-green-200 bg-green-50 p-4">
         <div className="mb-4 flex gap-1 text-green-800">
@@ -150,18 +112,18 @@ export function ReviewDetailsStep({
           Your claim has been submitted with claim number:{" "}
           <span className="font-mono font-semibold">{claimId}</span>
         </p>
-        <Button type="button" onClick={handleStartNew}>
+        <Button type="button" onClick={completeAndReturnHome}>
           Submit Another Claim
         </Button>
       </div>
     );
   }
 
-  if (!editableDetails) {
+  if (!extractedDetails) {
     return null;
   }
 
-  const isSubmitting = formState === "submitting";
+  const isSubmitting = formStatus === "submitting";
 
   return (
     <ScrollArea className="h-full">
@@ -199,15 +161,15 @@ export function ReviewDetailsStep({
             id="amount-input"
             type="number"
             step="0.01"
-            value={editableDetails.amount}
+            value={extractedDetails.amount}
             onChange={(e) =>
-              setEditableDetails({
-                ...editableDetails,
+              setExtractedDetails({
+                ...extractedDetails,
                 amount: Number.parseFloat(e.target.value) || 0,
               })
             }
             disabled={isSubmitting}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-gray-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
           />
         </div>
 
@@ -221,15 +183,15 @@ export function ReviewDetailsStep({
           <input
             id="date-input"
             type="date"
-            value={editableDetails.date}
+            value={extractedDetails.date}
             onChange={(e) =>
-              setEditableDetails({
-                ...editableDetails,
+              setExtractedDetails({
+                ...extractedDetails,
                 date: e.target.value,
               })
             }
             disabled={isSubmitting}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-gray-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
           />
         </div>
 
@@ -242,10 +204,10 @@ export function ReviewDetailsStep({
           </label>
           <textarea
             id="parties-input"
-            value={editableDetails.parties.join(", ")}
+            value={extractedDetails.parties.join(", ")}
             onChange={(e) =>
-              setEditableDetails({
-                ...editableDetails,
+              setExtractedDetails({
+                ...extractedDetails,
                 parties: e.target.value
                   .split(",")
                   .map((p) => p.trim())
@@ -254,7 +216,7 @@ export function ReviewDetailsStep({
             }
             rows={3}
             disabled={isSubmitting}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-gray-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
             placeholder="Separate parties with commas"
           />
         </div>
@@ -268,22 +230,22 @@ export function ReviewDetailsStep({
           </label>
           <textarea
             id="description-input"
-            value={editableDetails.description}
+            value={extractedDetails.description}
             onChange={(e) =>
-              setEditableDetails({
-                ...editableDetails,
+              setExtractedDetails({
+                ...extractedDetails,
                 description: e.target.value,
               })
             }
             rows={4}
             disabled={isSubmitting}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 disabled:cursor-not-allowed disabled:bg-gray-50 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
           />
         </div>
       </div>
 
         <div className="mt-6 flex justify-end gap-4">
-          <Button type="button" onClick={onBack} variant="outline" disabled={isSubmitting}>
+          <Button type="button" onClick={backToDocumentSelect} variant="outline" disabled={isSubmitting}>
             Back
           </Button>
           <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>

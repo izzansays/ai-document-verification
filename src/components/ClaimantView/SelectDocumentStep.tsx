@@ -1,38 +1,20 @@
 import { useQuery } from "convex/react";
 import { Button } from "@/components/ui/button";
+import { useNavigation, type Document } from "@/stores/claimantStore";
 import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
 
-type DocumentType = "medical_bill" | "vehicle_repair" | "police_report";
-
-type Document = {
-  id: Id<"documents">;
-  type: DocumentType;
-  name: string;
-  storageId: Id<"_storage">;
-  url: string | null;
-};
-
-type SelectDocumentStepProps = {
-  onDocumentSelect: (document: Document) => void;
-  onDocumentPreview?: (document: Document | null) => void;
-  selectedDocument: Document | null;
-};
-
-export function SelectDocumentStep({
-  onDocumentSelect,
-  onDocumentPreview,
-  selectedDocument,
-}: SelectDocumentStepProps) {
+export function SelectDocumentStep() {
+  const { selectedDocument, selectDocumentAndContinue, setSelectedDocument } =
+    useNavigation();
   const documents = useQuery(api.documents.listDocuments);
 
   const handleDocumentClick = (doc: Document) => {
-    onDocumentPreview?.(doc);
+    setSelectedDocument(doc);
   };
 
   const handleContinue = () => {
     if (selectedDocument) {
-      onDocumentSelect(selectedDocument);
+      selectDocumentAndContinue(selectedDocument);
     }
   };
 

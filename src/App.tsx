@@ -6,7 +6,7 @@ import { ClaimantView } from "./components/ClaimantView";
 import { HelpDialog, useHelpModal } from "./components/HelpDialog";
 import { LoginScreen } from "./components/LoginScreen";
 import { Button } from "./components/ui/button";
-import { useUser } from "./contexts/UserContext";
+import { useUser } from "./stores/userStore";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<"claimant" | "admin">("claimant");

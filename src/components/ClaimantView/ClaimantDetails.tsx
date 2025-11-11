@@ -1,15 +1,13 @@
 import { useQuery } from "convex/react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useUser } from "@/contexts/UserContext";
+import { useNavigation } from "@/stores/claimantStore";
+import { useUser } from "@/stores/userStore";
 import { api } from "../../../convex/_generated/api";
 
-type ClaimantDetailsProps = {
-  onStartClaim: () => void;
-};
-
-export function ClaimantDetails({ onStartClaim }: ClaimantDetailsProps) {
+export function ClaimantDetails() {
   const { email } = useUser();
+  const { startClaim } = useNavigation();
   const userClaims = useQuery(api.claims.getUserClaims, {
     claimantEmail: email || "",
   });
@@ -27,7 +25,7 @@ export function ClaimantDetails({ onStartClaim }: ClaimantDetailsProps) {
             past claims and their status in the right panel.
           </p>
           <Button
-            onClick={onStartClaim}
+            onClick={startClaim}
             size="lg"
             className="px-8 py-6 text-lg"
           >
