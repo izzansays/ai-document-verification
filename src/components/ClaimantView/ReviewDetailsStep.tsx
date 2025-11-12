@@ -1,66 +1,111 @@
 import { useAction, useMutation, useQuery } from "convex/react";
-import { CircleCheck } from "lucide-react";
-import { useEffect } from "react";
+import { CircleCheck, Plus, X } from "lucide-react";
+import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Field, FieldContent, FieldError, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useNavigation, useClaimData, useReviewForm } from "@/stores/claimantStore";
+import { useNavigation, useClaimData } from "@/stores/claimantStore";
 import { useUser } from "@/stores/userStore";
 import { api } from "../../../convex/_generated/api";
 import { Sparkles } from "../animate-ui/icons/sparkles";
+
+const formSchema = z.object({
+  amount: z
+    .number({ message: "Amount is required" })
+    .positive("Amount must be positive")
+    .min(0.01, "Amount must be at least $0.01"),
+  date: z
+    .string({ message: "Date is required" })
+    .refine((date) => {
+      const selectedDate = new Date(date);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999); // End of today
+      return selectedDate <= today;
+    }, "Date cannot be in the future"),
+  parties: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1, "Party name is required"),
+      })
+    )
+    .min(1, "At least one party is required"),
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 export function ReviewDetailsStep() {
   const { email } = useUser();
   const { selectedDocument, backToDocumentSelect, completeAndReturnHome } = useNavigation();
   const { claimId, setClaimId } = useClaimData();
-  const { formStatus, extractedDetails, setFormStatus, setExtractedDetails } = useReviewForm();
 
   const extractDetailsAction = useAction(api.ai.extractDocumentDetails);
   const evaluateClaim = useAction(api.ai.evaluateClaim);
   const submitClaim = useMutation(api.claims.submitClaim);
   const policyRules = useQuery(api.claims.getPolicyRules);
 
-  // Extract details when document is selected (only once per document)
-  useEffect(() => {
-    // Don't extract if no document or already have details
-    if (!selectedDocument || extractedDetails !== null) {
-      return;
-    }
+  const {
+    control,
+    handleSubmit: handleFormSubmit,
+    formState: { errors, isSubmitting, isLoading, isSubmitSuccessful },
+  } = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: async () => {
+      if (!selectedDocument) {
+        return {
+          amount: 0,
+          date: "",
+          parties: [{ name: "" }],
+        };
+      }
 
-    // Only extract if status is "extracting" (initial state when entering step 2)
-    if (formStatus !== "extracting") {
-      return;
-    }
-
-    const extract = async () => {
       try {
         const details = await extractDetailsAction({
           documentType: selectedDocument.type,
           storageId: selectedDocument.storageId,
         });
-        setExtractedDetails(details);
-        setFormStatus("editing");
+
+        return {
+          amount: details.amount,
+          date: details.date,
+          parties: details.parties.map((party: string) => ({ name: party })),
+        };
       } catch (_error) {
         toast.error("Failed to extract document details");
-        setFormStatus("editing");
+        return {
+          amount: 0,
+          date: "",
+          parties: [{ name: "" }],
+        };
       }
-    };
+    },
+  });
 
-    extract();
-  }, [selectedDocument, extractedDetails, formStatus, extractDetailsAction, setExtractedDetails, setFormStatus]);
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "parties",
+  });
 
-  const handleSubmit = async () => {
-    if (!(selectedDocument && extractedDetails && email && policyRules)) {
+  const onSubmit = async (data: FormData) => {
+    if (!(selectedDocument && email && policyRules)) {
       return;
     }
 
     try {
-      setFormStatus("submitting");
+      const submissionData = {
+        amount: data.amount,
+        date: data.date,
+        parties: data.parties.map((p) => p.name),
+      };
 
       // First, evaluate the claim using AI
       const aiEvaluation = await evaluateClaim({
-        extractedDetails,
+        extractedDetails: submissionData,
         policyRules,
       });
 
@@ -69,18 +114,16 @@ export function ReviewDetailsStep() {
         claimantEmail: email,
         documentType: selectedDocument.type,
         storageId: selectedDocument.storageId,
-        extractedDetails,
+        extractedDetails: submissionData,
         aiEvaluation,
       });
       setClaimId(submittedClaimId);
-      setFormStatus("submitted");
     } catch (_error) {
       toast.error("Failed to submit claim");
-      setFormStatus("editing");
     }
   };
 
-  if (formStatus === "extracting") {
+  if (isLoading) {
     return (
       <div className="space-y-6">
         <div className="flex flex-col gap-3 rounded-lg border bg-muted/50 p-4">
@@ -100,7 +143,7 @@ export function ReviewDetailsStep() {
     );
   }
 
-  if (formStatus === "submitted") {
+  if (isSubmitSuccessful && claimId) {
     return (
       <div className="rounded-lg border border-green-200 bg-green-50 p-4">
         <div className="mb-4 flex gap-1 text-green-800">
@@ -119,12 +162,6 @@ export function ReviewDetailsStep() {
     );
   }
 
-  if (!extractedDetails) {
-    return null;
-  }
-
-  const isSubmitting = formStatus === "submitting";
-
   return (
     <ScrollArea className="h-full">
       <div className="pr-4">
@@ -133,125 +170,121 @@ export function ReviewDetailsStep() {
           corrections:
         </p>
 
-        <div className="space-y-4 rounded-lg border bg-white p-6">
-        <div>
-          <label
-            htmlFor="document-type-input"
-            className="mb-2 block font-medium text-gray-700 text-sm"
-          >
-            Document Type
-          </label>
-          <input
-            id="document-type-input"
-            type="text"
-            value={selectedDocument?.name || ""}
-            disabled
-            className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2"
-          />
-        </div>
+        <form onSubmit={handleFormSubmit(onSubmit)} className="space-y-4 rounded-lg border bg-white p-6">
+          <Field>
+            <FieldLabel htmlFor="document-type-input">Document Type</FieldLabel>
+            <FieldContent>
+              <Input
+                id="document-type-input"
+                type="text"
+                value={selectedDocument?.name || ""}
+                disabled
+                className="bg-gray-50"
+              />
+            </FieldContent>
+          </Field>
 
-        <div>
-          <label
-            htmlFor="amount-input"
-            className="mb-2 block font-medium text-gray-700 text-sm"
-          >
-            Amount ($)
-          </label>
-          <input
-            id="amount-input"
-            type="number"
-            step="0.01"
-            value={extractedDetails.amount}
-            onChange={(e) =>
-              setExtractedDetails({
-                ...extractedDetails,
-                amount: Number.parseFloat(e.target.value) || 0,
-              })
-            }
-            disabled={isSubmitting}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
+          <Controller
+            name="amount"
+            control={control}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="amount-input">Amount ($)</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="amount-input"
+                    type="number"
+                    step="0.01"
+                    disabled={isSubmitting}
+                    {...field}
+                    onChange={(e) => field.onChange(Number.parseFloat(e.target.value) || 0)}
+                  />
+                  <FieldError errors={errors.amount ? [errors.amount] : undefined} />
+                </FieldContent>
+              </Field>
+            )}
           />
-        </div>
 
-        <div>
-          <label
-            htmlFor="date-input"
-            className="mb-2 block font-medium text-gray-700 text-sm"
-          >
-            Date
-          </label>
-          <input
-            id="date-input"
-            type="date"
-            value={extractedDetails.date}
-            onChange={(e) =>
-              setExtractedDetails({
-                ...extractedDetails,
-                date: e.target.value,
-              })
-            }
-            disabled={isSubmitting}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
+          <Controller
+            name="date"
+            control={control}
+            render={({ field }) => (
+              <Field>
+                <FieldLabel htmlFor="date-input">Date</FieldLabel>
+                <FieldContent>
+                  <DatePicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    disabled={isSubmitting}
+                    disableFutureDates
+                    placeholder="Select a date"
+                  />
+                  <FieldError errors={errors.date ? [errors.date] : undefined} />
+                </FieldContent>
+              </Field>
+            )}
           />
-        </div>
 
-        <div>
-          <label
-            htmlFor="parties-input"
-            className="mb-2 block font-medium text-gray-700 text-sm"
-          >
-            Parties Involved
-          </label>
-          <textarea
-            id="parties-input"
-            value={extractedDetails.parties.join(", ")}
-            onChange={(e) =>
-              setExtractedDetails({
-                ...extractedDetails,
-                parties: e.target.value
-                  .split(",")
-                  .map((p) => p.trim())
-                  .filter((p) => p),
-              })
-            }
-            rows={3}
-            disabled={isSubmitting}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
-            placeholder="Separate parties with commas"
-          />
-        </div>
+          <div>
+            <FieldLabel>Parties Involved</FieldLabel>
+            <div className="mt-2 space-y-2">
+              {fields.map((item, index) => (
+                <Field key={item.id} orientation="horizontal">
+                  <FieldContent>
+                    <Controller
+                      name={`parties.${index}.name`}
+                      control={control}
+                      render={({ field }) => (
+                        <div className="flex gap-2">
+                          <Input
+                            {...field}
+                            disabled={isSubmitting}
+                            placeholder="Enter party name"
+                            className="flex-1"
+                          />
+                          {fields.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => remove(index)}
+                              disabled={isSubmitting}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    />
+                    <FieldError 
+                      errors={errors.parties?.[index]?.name ? [errors.parties[index].name] : undefined} 
+                    />
+                  </FieldContent>
+                </Field>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => append({ name: "" })}
+                disabled={isSubmitting}
+                className="mt-2"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Party
+              </Button>
+            </div>
+          </div>
 
-        <div>
-          <label
-            htmlFor="description-input"
-            className="mb-2 block font-medium text-gray-700 text-sm"
-          >
-            Description
-          </label>
-          <textarea
-            id="description-input"
-            value={extractedDetails.description}
-            onChange={(e) =>
-              setExtractedDetails({
-                ...extractedDetails,
-                description: e.target.value,
-              })
-            }
-            rows={4}
-            disabled={isSubmitting}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50"
-          />
-        </div>
-      </div>
-
-        <div className="mt-6 flex justify-end gap-4">
-          <Button type="button" onClick={backToDocumentSelect} variant="outline" disabled={isSubmitting}>
-            Back
-          </Button>
-          <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "Submitting..." : "Submit Claim"}
-          </Button>
-        </div>
+          <div className="mt-6 flex justify-end gap-4">
+            <Button type="button" onClick={backToDocumentSelect} variant="outline" disabled={isSubmitting}>
+              Back
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : "Submit Claim"}
+            </Button>
+          </div>
+        </form>
       </div>
     </ScrollArea>
   );

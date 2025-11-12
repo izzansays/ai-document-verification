@@ -10,11 +10,11 @@ export const submitClaim = mutation({
       amount: v.number(),
       date: v.string(),
       parties: v.array(v.string()),
-      description: v.string(),
     }),
     aiEvaluation: v.object({
       approved: v.boolean(),
       reason: v.string(),
+      description: v.string(),
       confidenceScore: v.number(),
       policyCheck: v.object({
         withinLimit: v.boolean(),
@@ -67,7 +67,9 @@ export const getClaim = query({
   args: { claimId: v.id("claims") },
   handler: async (ctx, args) => {
     const claim = await ctx.db.get(args.claimId);
-    if (!claim) return null;
+    if (!claim) {
+      return null;
+    }
 
     const documentUrl = await ctx.storage.getUrl(claim.storageId);
 

@@ -6,9 +6,8 @@ const EXTRACTION_PROMPT = `Analyze this document and extract the following infor
 - amount: The total monetary amount mentioned (as a number, or 0 if no amount is specified)
 - date: The primary date mentioned in the document (in YYYY-MM-DD format)
 - parties: An array of all parties/entities mentioned (individuals, companies, organizations, etc.)
-- description: A brief description of what this document is about (1-2 sentences)
 
-Return ONLY a valid JSON object with these exact keys: amount, date, parties, description.
+Return ONLY a valid JSON object with these exact keys: amount, date, parties.
 Do not include any other text or markdown formatting in your response.`;
 
 const JSON_EXTRACT_REGEX = /```(?:json)?\s*([\s\S]*?)\s*```/;
@@ -27,6 +26,7 @@ Your task:
 3. Check if the parties involved match the valid parties listed in the policy (be flexible with name matching - consider partial matches and common variations)
 4. Calculate a confidence score (0-100) representing how well this claim meets the policy requirements
 5. Provide a clear reason explaining your evaluation
+6. Generate a brief description (1-2 sentences) summarizing what this claim is about based on the extracted details
 
 Return ONLY a valid JSON object with these exact keys:
 - withinLimit: boolean (true if amount <= policy limit)
@@ -35,6 +35,7 @@ Return ONLY a valid JSON object with these exact keys:
 - confidenceScore: number (0-100, where 100 means perfect match)
 - approved: boolean (true if all checks pass and confidence is >= 70)
 - reason: string (detailed explanation of the evaluation)
+- description: string (brief summary of what this claim is about, 1-2 sentences)
 
 Do not include any other text or markdown formatting in your response.`;
 
@@ -44,7 +45,6 @@ export const evaluateClaim = action({
       amount: v.number(),
       date: v.string(),
       parties: v.array(v.string()),
-      description: v.string(),
     }),
     policyRules: v.object({
       claimLimit: v.number(),
@@ -106,7 +106,8 @@ export const evaluateClaim = action({
         typeof evaluationData.validParties !== "boolean" ||
         typeof evaluationData.confidenceScore !== "number" ||
         typeof evaluationData.approved !== "boolean" ||
-        typeof evaluationData.reason !== "string"
+        typeof evaluationData.reason !== "string" ||
+        typeof evaluationData.description !== "string"
       ) {
         throw new Error("Invalid evaluation response structure from Claude");
       }
@@ -114,6 +115,7 @@ export const evaluateClaim = action({
       return {
         approved: evaluationData.approved,
         reason: evaluationData.reason,
+        description: evaluationData.description,
         confidenceScore: evaluationData.confidenceScore,
         policyCheck: {
           withinLimit: evaluationData.withinLimit,
@@ -227,8 +229,7 @@ export const extractDocumentDetails = action({
       if (
         typeof extractedData.amount !== "number" ||
         typeof extractedData.date !== "string" ||
-        !Array.isArray(extractedData.parties) ||
-        typeof extractedData.description !== "string"
+        !Array.isArray(extractedData.parties)
       ) {
         throw new Error("Invalid response structure from Claude");
       }
@@ -237,7 +238,6 @@ export const extractDocumentDetails = action({
         amount: extractedData.amount,
         date: extractedData.date,
         parties: extractedData.parties,
-        description: extractedData.description,
       };
     } catch (error) {
       throw new Error(

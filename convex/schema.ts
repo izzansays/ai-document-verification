@@ -11,11 +11,11 @@ const applicationTables = {
       amount: v.number(),
       date: v.string(),
       parties: v.array(v.string()),
-      description: v.string(),
     }),
     aiEvaluation: v.object({
       approved: v.boolean(),
       reason: v.string(),
+      description: v.string(),
       confidenceScore: v.optional(v.number()),
       policyCheck: v.object({
         withinLimit: v.boolean(),

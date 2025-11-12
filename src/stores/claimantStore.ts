@@ -13,29 +13,16 @@ export type Document = {
 };
 
 // Store interface
-type FormStatus = "idle" | "extracting" | "editing" | "submitting" | "submitted";
-
-type ExtractedDetails = {
-  amount: number;
-  date: string;
-  parties: string[];
-  description: string;
-};
-
 type ClaimantStore = {
   // Navigation & shared data
   step: 0 | 1 | 2;
   selectedDocument: Document | null;
   claimId: string | undefined;
-  formStatus: FormStatus;
-  extractedDetails: ExtractedDetails | null;
 
   // Actions
   setStep: (step: 0 | 1 | 2) => void;
   setSelectedDocument: (document: Document | null) => void;
   setClaimId: (id: string | undefined) => void;
-  setFormStatus: (status: FormStatus) => void;
-  setExtractedDetails: (details: ExtractedDetails | null) => void;
 
   // Combined actions for common workflows
   startClaim: () => void;
@@ -51,8 +38,6 @@ export const useClaimantStore = create<ClaimantStore>((set) => ({
   step: 0,
   selectedDocument: null,
   claimId: undefined,
-  formStatus: "idle",
-  extractedDetails: null,
 
   setStep: (step: 0 | 1 | 2) => {
     set({ step });
@@ -63,12 +48,6 @@ export const useClaimantStore = create<ClaimantStore>((set) => ({
   setClaimId: (claimId: string | undefined) => {
     set({ claimId });
   },
-  setFormStatus: (formStatus: FormStatus) => {
-    set({ formStatus });
-  },
-  setExtractedDetails: (extractedDetails: ExtractedDetails | null) => {
-    set({ extractedDetails });
-  },
 
   // Combined actions
   startClaim: () => {
@@ -76,8 +55,6 @@ export const useClaimantStore = create<ClaimantStore>((set) => ({
       step: 1,
       selectedDocument: null,
       claimId: undefined,
-      formStatus: "idle",
-      extractedDetails: null,
     });
   },
 
@@ -85,8 +62,6 @@ export const useClaimantStore = create<ClaimantStore>((set) => ({
     set({
       selectedDocument: document,
       step: 2,
-      formStatus: "extracting",
-      extractedDetails: null,
     });
   },
 
@@ -94,8 +69,6 @@ export const useClaimantStore = create<ClaimantStore>((set) => ({
     set({
       step: 1,
       selectedDocument: null,
-      formStatus: "idle",
-      extractedDetails: null,
     });
   },
 
@@ -103,8 +76,6 @@ export const useClaimantStore = create<ClaimantStore>((set) => ({
     set({
       step: 0,
       selectedDocument: null,
-      formStatus: "idle",
-      extractedDetails: null,
       claimId: undefined,
     });
   },
@@ -114,8 +85,6 @@ export const useClaimantStore = create<ClaimantStore>((set) => ({
       step: 0,
       selectedDocument: null,
       claimId: undefined,
-      formStatus: "idle",
-      extractedDetails: null,
     });
   },
 }));
@@ -147,15 +116,3 @@ export const useClaimData = () => {
 
   return { claimId, setClaimId };
 };
-
-export const useReviewForm = () => {
-  const formStatus = useClaimantStore((state) => state.formStatus);
-  const extractedDetails = useClaimantStore((state) => state.extractedDetails);
-  const setFormStatus = useClaimantStore((state) => state.setFormStatus);
-  const setExtractedDetails = useClaimantStore((state) => state.setExtractedDetails);
-
-  return { formStatus, extractedDetails, setFormStatus, setExtractedDetails };
-};
-
-// Export types for use in components
-export type { FormStatus, ExtractedDetails };
